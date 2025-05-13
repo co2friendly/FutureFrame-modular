@@ -1,0 +1,11 @@
+FutureFrame-modular/
+├── README.md
+├── requirements.txt
+└── runway-video-module/
+    ├── __init__.py
+    ├── api_handler.py
+    ├── video_generator.py
+    ├── download_manager.py
+    ├── runway_integration.py
+    └── examples/
+        └── example.py
