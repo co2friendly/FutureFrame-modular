@@ -1,0 +1,145 @@
+"""
+Runway ML Download Manager Module
+--------------------------------
+Handles downloading and saving generated videos.
+"""
+
+import os
+import logging
+import requests
+from typing import Optional, Union, Dict, Any
+from pathlib import Path
+
+from .api_handler import RunwayAPIHandler
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+class RunwayDownloadManager:
+    """
+    Manager for downloading and saving generated videos from Runway ML.
+    """
+    
+    def __init__(self, api_handler: Optional[RunwayAPIHandler] = None, api_key: Optional[str] = None):
+        """
+        Initialize the download manager.
+        
+        Args:
+            api_handler: Existing RunwayAPIHandler instance (optional)
+            api_key: The Runway ML API key (optional, used only if api_handler not provided)
+        """
+        self.api_handler = api_handler or RunwayAPIHandler(api_key)
+        logger.info("RunwayDownloadManager initialized")
+    
+    def get_video_url(self, task_data: Dict[str, Any]) -> Optional[str]:
+        """
+        Extract the video URL from task data.
+        
+        Args:
+            task_data: Task data from get_task_status
+            
+        Returns:
+            Video URL or None if not available
+        """
+        # Check if the task is completed
+        if task_data.get("status") != "completed":
+            logger.warning("Task not completed, no video URL available")
+            return None
+        
+        # Extract the output URL from the task data
+        # The actual structure may vary depending on the API response
+        output = task_data.get("output", {})
+        
+        # Handle different possible formats of the output
+        video_url = None
+        if isinstance(output, dict):
+            video_url = output.get("video_url") or output.get("url")
+        elif isinstance(output, str):
+            video_url = output
+            
+        if not video_url:
+            logger.error("No video URL found in the task output")
+            return None
+            
+        return video_url
+    
+    def download_video(
+        self, 
+        video_url: str, 
+        output_path: Union[str, Path],
+        chunk_size: int = 1024 * 1024  # 1MB chunks
+    ) -> bool:
+        """
+        Download a video from the given URL and save it to the specified path.
+        
+        Args:
+            video_url: URL of the video to download
+            output_path: Path where the video will be saved
+            chunk_size: Size of chunks when downloading (bytes)
+            
+        Returns:
+            True if download was successful, False otherwise
+        """
+        output_path = Path(output_path)
+        
+        # Create the directory if it doesn't exist
+        os.makedirs(output_path.parent, exist_ok=True)
+        
+        try:
+            logger.info(f"Downloading video from: {video_url}")
+            
+            # Use streaming to handle large files
+            with requests.get(video_url, stream=True) as response:
+                response.raise_for_status()
+                
+                # Get the total file size if available
+                total_size = int(response.headers.get('content-length', 0))
+                downloaded = 0
+                
+                # Write the file in chunks
+                with open(output_path, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=chunk_size):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            
+                            # Log progress for large files
+                            if total_size > 0:
+                                percent = (downloaded / total_size) * 100
+                                logger.debug(f"Download progress: {percent:.1f}%")
+            
+            logger.info(f"Video downloaded successfully to: {output_path}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error downloading video: {str(e)}")
+            
+            # Clean up partial file if it exists
+            if output_path.exists():
+                logger.info(f"Removing partial download file: {output_path}")
+                output_path.unlink()
+                
+            return False
+    
+    def download_from_task(
+        self, 
+        task_data: Dict[str, Any], 
+        output_path: Union[str, Path]
+    ) -> bool:
+        """
+        Download a video from a completed task.
+        
+        Args:
+            task_data: Task data from get_task_status
+            output_path: Path where the video will be saved
+            
+        Returns:
+            True if download was successful, False otherwise
+        """
+        video_url = self.get_video_url(task_data)
+        
+        if not video_url:
+            return False
+            
+        return self.download_video(video_url, output_path)
