@@ -1,0 +1,112 @@
+# Runway ML Video Module
+
+This module provides functionality for generating videos using the Runway ML API, specifically with the Gen-4 Turbo model.
+
+## Features
+
+- API authentication and request handling
+- Video generation from input images
+- Video downloading and management
+- Easy-to-use integrated interface
+
+## Installation
+
+1. Clone this repository or add it to your project
+2. Install the required dependencies:
+
+```bash
+pip install requests
+```
+
+## Usage
+
+### Basic usage
+
+```python
+from runway_video_module import RunwayIntegration
+
+# Initialize the integration with your API key
+runway = RunwayIntegration(api_key="your-api-key")
+
+# Generate and download a video
+result = runway.generate_and_download_video(
+    image_path="path/to/input.jpg",
+    prompt_text="Camera slowly zooms in on the subject",
+    output_path="path/to/output.mp4",
+    duration=5,
+    ratio="1280:720"
+)
+
+# Check the result
+if result["success"]:
+    print(f"Video generated and downloaded successfully to: {result['video_path']}")
+else:
+    print(f"Failed to generate video: {result['error']}")
+```
+
+### Using environment variables
+
+You can also set the API key as an environment variable:
+
+```bash
+export RUNWAYML_API_SECRET="your-api-key"
+```
+
+Then initialize without passing the key:
+
+```python
+runway = RunwayIntegration()  # Will use the environment variable
+```
+
+### Command-line usage
+
+The module includes an example script that can be run from the command line:
+
+```bash
+python example.py --image path/to/input.jpg --prompt "Camera slowly zooms in on the subject" --output path/to/output.mp4
+```
+
+Available options:
+
+```
+--image        Path to the input image (required)
+--prompt       Text prompt describing the desired motion (required)
+--output       Output path for the generated video (required)
+--api-key      Runway ML API key (or use RUNWAYML_API_SECRET env var)
+--duration     Video duration in seconds (5 or 10, default: 5)
+--ratio        Aspect ratio (default: 1280:720)
+--model        Model to use (default: gen4_turbo)
+--seed         Seed for reproducibility
+--watermark    Include Runway watermark
+--timeout      Maximum time to wait for completion in seconds (default: 300)
+```
+
+## Project Structure
+
+```
+runway_video_module/
+├── __init__.py
+├── api_handler.py
+├── video_generator.py
+├── download_manager.py
+├── runway_integration.py
+└── examples/
+    └── example.py
+```
+
+## Notes on Modular Design
+
+This module is designed to be part of a larger modular system. Each component has a single responsibility, making it easier to maintain and extend. The modules can be integrated with other parts of your project through the `RunwayIntegration` class or by using the individual components directly.
+
+## Requirements
+
+- Python 3.6+
+- `requests` library
+- Runway ML API key with sufficient credits
+
+## Runway ML API Information (2025)
+
+- Gen-4 Turbo uses 5 credits per second of video
+- Supports 5 or 10 second durations
+- Requires an input image
+- Supported aspect ratios: 1280:720, 720:1280, 1104:832, 832:1104, 960:960, 1584:672
