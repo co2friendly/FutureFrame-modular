@@ -1,0 +1,89 @@
+"""
+Example Script for Runway ML Video Generation
+--------------------------------------------
+Demonstrates how to use the Runway ML integration to generate a video.
+"""
+
+import os
+import argparse
+import sys
+import logging
+from pathlib import Path
+
+# Add the parent directory to the path so we can import our modules
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+from runway_video_module.runway_integration import RunwayIntegration
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+def main():
+    """
+    Main function to parse arguments and generate a video.
+    """
+    parser = argparse.ArgumentParser(description="Generate a video using Runway ML API")
+    
+    # Required arguments
+    parser.add_argument("--image", required=True, help="Path to the input image")
+    parser.add_argument("--prompt", required=True, help="Text prompt describing the desired motion")
+    parser.add_argument("--output", required=True, help="Output path for the generated video")
+    
+    # Optional arguments
+    parser.add_argument("--api-key", help="Runway ML API key (or use RUNWAYML_API_SECRET env var)")
+    parser.add_argument("--duration", type=int, choices=[5, 10], default=5, help="Video duration in seconds (5 or 10)")
+    parser.add_argument("--ratio", default="1280:720", 
+                        choices=["1280:720", "720:1280", "1104:832", "832:1104", "960:960", "1584:672"],
+                        help="Aspect ratio for the video")
+    parser.add_argument("--model", default="gen4_turbo", help="Model to use (default: gen4_turbo)")
+    parser.add_argument("--seed", type=int, help="Seed for reproducibility")
+    parser.add_argument("--watermark", action="store_true", help="Include Runway watermark")
+    parser.add_argument("--timeout", type=float, default=300.0, help="Maximum time to wait for completion (seconds)")
+    
+    args = parser.parse_args()
+    
+    # Check if the image file exists
+    image_path = Path(args.image)
+    if not image_path.exists():
+        logger.error(f"Image file not found: {image_path}")
+        return 1
+    
+    # Create output directory if it doesn't exist
+    output_path = Path(args.output)
+    os.makedirs(output_path.parent, exist_ok=True)
+    
+    try:
+        # Initialize the Runway integration
+        runway = RunwayIntegration(api_key=args.api_key)
+        
+        # Generate and download the video
+        logger.info(f"Generating video from image: {image_path}")
+        logger.info(f"Prompt: {args.prompt}")
+        
+        result = runway.generate_and_download_video(
+            image_path=image_path,
+            prompt_text=args.prompt,
+            output_path=output_path,
+            duration=args.duration,
+            ratio=args.ratio,
+            model=args.model,
+            seed=args.seed,
+            watermark=args.watermark,
+            timeout=args.timeout
+        )
+        
+        # Check the result
+        if result["success"]:
+            logger.info(f"Video generated and downloaded successfully to: {result['video_path']}")
+            return 0
+        else:
+            logger.error(f"Failed to generate video: {result['error']}")
+            return 1
+            
+    except Exception as e:
+        logger.exception(f"An error occurred: {str(e)}")
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())
